@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.intrinsic as nni
 import torch.nn.quantized as nnq
+import torch.nn.quantized.dynamic as nnqd
 
 from .default_mappings import (DEFAULT_DYNAMIC_MODULE_MAPPING,
                                DEFAULT_MODULE_MAPPING,
@@ -101,6 +102,10 @@ def add_observer_(module):
                 if device is not None:
                     activation.to(device)
                 child.activation_post_process = activation
+        elif type(child) == nnqd.Linear or type(child) == nnq.Linear:
+            if hasattr(child, 'qconfig') and child.qconfig is not None:
+                child.add_module('activation_post_process', child.qconfig.activation())
+                child.register_forward_hook(_observer_forward_hook)
         else:
             add_observer_(child)
 
