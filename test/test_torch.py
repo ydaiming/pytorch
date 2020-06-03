@@ -7052,6 +7052,15 @@ class TestTorchDeviceType(TestCase):
         res2 = torch.cat((x, y), out=z)
         self.assertEqual(res1, res2)
 
+    def test_cat_in_channels_last(self, device):
+        x = torch.randn((4, 15, 8, 8))
+        y = torch.randn(x.shape)
+        res1 = torch.cat((x, y), dim=1)
+        x = x.clone().contiguous(memory_format=torch.channels_last)
+        y = y.clone().contiguous(memory_format=torch.channels_last)
+        res2 = torch.cat((x, y), dim=1)
+        self.assertEqual(res1, res2)
+
     @onlyCUDA
     def test_cat_preserve_channels_last(self, device):
         x = torch.randn((4, 3, 8, 8), device=device)

@@ -5,7 +5,7 @@
 
 namespace at { namespace native {
 
-using cat_serial_fn = void(*)(Tensor &, TensorList, int64_t);
-DECLARE_DISPATCH(cat_serial_fn, cat_serial_stub);
+using cat_contig_fn = void(*)(Tensor &, TensorList, int64_t);
+DECLARE_DISPATCH(cat_contig_fn, cat_contig_stub);
 
 }}  // namespace at::native

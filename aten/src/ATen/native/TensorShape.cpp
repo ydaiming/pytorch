@@ -21,7 +21,7 @@
 namespace at {
 namespace native {
 
-DEFINE_DISPATCH(cat_serial_stub);
+DEFINE_DISPATCH(cat_contig_stub);
 
 Tensor _reshape_from_tensor(const Tensor& self, const Tensor& shape_tensor) {
   TORCH_CHECK(shape_tensor.dim() == 1);
@@ -142,6 +142,7 @@ Tensor & _cat_out_cpu(Tensor& result, TensorList tensors, int64_t dim) {
 
   // compute size of the result in the cat dimension
   int64_t cat_dim_size = 0;
+  auto first_tensor_mem_format = tensors[0].suggest_memory_format();
   for (int i = 0; i < tensors.size(); i++) {
     auto const &tensor = tensors[i];
     if (should_skip(tensor)) {
@@ -152,7 +153,7 @@ Tensor & _cat_out_cpu(Tensor& result, TensorList tensors, int64_t dim) {
     check_cat_shape_except_dim(notSkippedTensor, tensor, dim, i);
     cat_dim_size += tensor.size(dim);
 
-    if (!tensor.is_contiguous()) {
+    if (!tensor.is_contiguous(first_tensor_mem_format)) {
       allContiguous = false;
     }
 
@@ -166,14 +167,16 @@ Tensor & _cat_out_cpu(Tensor& result, TensorList tensors, int64_t dim) {
   // compute the size of the result
   auto result_size = notSkippedTensor.sizes().vec();
   result_size[dim] = cat_dim_size;
-  result.resize_(result_size);
+  result.resize_(result_size, first_tensor_mem_format);
+  if (result.numel() == 0) {
+    return result;
+  }
 
   // fast path for single thread when both inputs and result are contiguous and not empty
-  bool use_serial_kernel = result.numel() < at::internal::GRAIN_SIZE || at::get_num_threads() == 1;
-  allContiguous = allContiguous && result.is_contiguous();
+  allContiguous = allContiguous && result.is_contiguous(first_tensor_mem_format);
   ScalarType dtype = notSkippedTensor.scalar_type();
-  if (use_serial_kernel && allContiguous && (dtype == ScalarType::Double || dtype == ScalarType::Float)) {
-    cat_serial_stub(kCPU, result, tensors, dim);
+  if (allContiguous && (dtype == ScalarType::Double || dtype == ScalarType::Float)) {
+    cat_contig_stub(kCPU, result, tensors, dim);
     return result;
   }
 
